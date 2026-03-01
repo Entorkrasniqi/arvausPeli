@@ -3,31 +3,46 @@ package com.example.arvauspeli
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.arvauspeli.ui.theme.ArvausPeliTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            ArvausPeliTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    GuessGameScreen(modifier = Modifier.padding(innerPadding))
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    GuessingGameScreen()
                 }
             }
         }
@@ -35,48 +50,47 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun GuessGameScreen(modifier: Modifier = Modifier) {
-    var gameState by remember { mutableStateOf(0) } // used to trigger recomposition on new game
-    val game = remember(gameState) { YliAliPeli() }
+fun GuessingGameScreen() {
+    var game by remember { mutableStateOf(YliAliPeli()) }
     var inputText by remember { mutableStateOf("") }
-    var feedbackMessage by remember { mutableStateOf("Arvaa luku välillä 1–100!") }
-    var gameOver by remember { mutableStateOf(false) }
-    var feedbackColor by remember { mutableStateOf(androidx.compose.ui.graphics.Color(0xFF1565C0)) }
+    var message by remember { mutableStateOf("I'm thinking of a number between 1 and 100. Can you guess it?") }
+    var gameWon by remember { mutableStateOf(false) }
+    var inputError by remember { mutableStateOf(false) }
 
     fun submitGuess() {
         val guess = inputText.toIntOrNull()
         if (guess == null || guess !in 1..100) {
-            feedbackMessage = "Syötä kelvollinen luku välillä 1–100."
-            feedbackColor = androidx.compose.ui.graphics.Color(0xFFB71C1C)
+            inputError = true
+            message = "Please enter a valid number between 1 and 100."
             return
         }
-        when (game.makeGuess(guess)) {
-            YliAliPeli.Result.TOO_LOW -> {
-                feedbackMessage = "Liian pieni! Yritä uudelleen."
-                feedbackColor = androidx.compose.ui.graphics.Color(0xFFE65100)
+        inputError = false
+        val result = game.makeGuess(guess)
+        when (result) {
+            YliAliPeli.GuessResult.TOO_LOW -> {
+                message = "Too low! Try a higher number."
             }
-            YliAliPeli.Result.TOO_HIGH -> {
-                feedbackMessage = "Liian suuri! Yritä uudelleen."
-                feedbackColor = androidx.compose.ui.graphics.Color(0xFF6A1B9A)
+            YliAliPeli.GuessResult.TOO_HIGH -> {
+                message = "Too high! Try a lower number."
             }
-            YliAliPeli.Result.HIT -> {
-                feedbackMessage = "🎉 Oikein! Arvasit luvun ${game.guessCount} arvauksella!"
-                feedbackColor = androidx.compose.ui.graphics.Color(0xFF1B5E20)
-                gameOver = true
+            YliAliPeli.GuessResult.HIT -> {
+                gameWon = true
+                val guesses = game.guessCount
+                message = "Correct! You guessed it in $guesses ${if (guesses == 1) "guess" else "guesses"}!"
             }
         }
         inputText = ""
     }
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Arvauuspeli",
+            text = "ArvausPeli",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -85,7 +99,7 @@ fun GuessGameScreen(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "by Entor Krasniqi",
+            text = "By Entorkrasniqi",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.secondary
         )
@@ -94,33 +108,40 @@ fun GuessGameScreen(modifier: Modifier = Modifier) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = if (gameWon)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
         ) {
             Text(
-                text = feedbackMessage,
+                text = message,
+                modifier = Modifier.padding(16.dp),
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = feedbackColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxWidth()
+                textAlign = TextAlign.Center
             )
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        if (!gameOver) {
+        if (!gameWon) {
             OutlinedTextField(
                 value = inputText,
-                onValueChange = { inputText = it },
-                label = { Text("Arvauksesi (1–100)") },
+                onValueChange = {
+                    inputText = it
+                    inputError = false
+                },
+                label = { Text("Your guess (1-100)") },
+                isError = inputError,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
-                keyboardActions = KeyboardActions(onDone = { submitGuess() }),
+                keyboardActions = KeyboardActions(
+                    onDone = { submitGuess() }
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -128,35 +149,33 @@ fun GuessGameScreen(modifier: Modifier = Modifier) {
 
             Button(
                 onClick = { submitGuess() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                modifier = Modifier.fillMaxWidth(),
+                enabled = inputText.isNotBlank()
             ) {
-                Text("Arvaa", fontSize = 18.sp)
+                Text("Guess!", fontSize = 18.sp)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (game.guessCount > 0) {
+                Text(
+                    text = "Guesses so far: ${game.guessCount}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             Button(
                 onClick = {
-                    gameState++ // creates a fresh YliAliPeli via remember(gameState)
+                    game = YliAliPeli()
+                    message = "I'm thinking of a number between 1 and 100. Can you guess it?"
+                    gameWon = false
                     inputText = ""
-                    feedbackMessage = "Arvaa luku välillä 1–100!"
-                    feedbackColor = androidx.compose.ui.graphics.Color(0xFF1565C0)
-                    gameOver = false
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Pelaa uudelleen", fontSize = 18.sp)
+                Text("Play Again", fontSize = 18.sp)
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GuessGamePreview() {
-    ArvausPeliTheme {
-        GuessGameScreen()
     }
 }
